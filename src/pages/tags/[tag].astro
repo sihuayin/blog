@@ -1,27 +1,53 @@
 ---
-import BaseLayout from '../../layouts/BaseLayout.astro';
-import BlogPost from '../../components/BlogPost.astro'
+import { CollectionEntry, getCollection } from "astro:content";
+import Layout from "@layouts/Layout.astro";
+import Main from "@layouts/Main.astro";
+import Header from "@components/Header.astro";
+import Footer from "@components/Footer.astro";
+import Card from "@components/Card";
+import getUniqueTags from "@utils/getUniqueTags";
+import getPostsByTag from "@utils/getPostsByTag";
+import slugify from "@utils/slugify";
+import { SITE } from "@config";
+
+export interface Props {
+  post: CollectionEntry<"blog">;
+  tag: string;
+}
 
 export async function getStaticPaths() {
-  const allPosts = await Astro.glob('../posts/*.md');
-  
-  const uniqueTags = [...new Set(allPosts.map((post) => post.frontmatter.tags).flat())];
+  const posts = await getCollection("blog");
 
-  return uniqueTags.map((tag) => {
-    const filteredPosts = allPosts.filter((post) => post.frontmatter.tags.includes(tag));
+  const tags = getUniqueTags(posts);
+
+  return tags.map(tag => {
     return {
       params: { tag },
-      props: { posts: filteredPosts },
+      props: { tag },
     };
   });
 }
 
-const { tag } = Astro.params;
-const { posts } = Astro.props;
+const { tag } = Astro.props;
+
+const posts = await getCollection("blog", ({ data }) => !data.draft);
+
+const tagPosts = getPostsByTag(posts, tag);
 ---
-<BaseLayout pageTitle={tag}>
-  <p>Posts tagged with {tag}</p>
-  <ul>
-    {posts.map((post) => <BlogPost url={post.url} title={post.frontmatter.title}/>)}
-  </ul>
-</BaseLayout>
+
+<Layout title={`Tag:${tag} | ${SITE.title}`}>
+  <Header activeNav="tags" />
+  <Main
+    pageTitle={`Tag:${tag}`}
+    pageDesc={`All the articles with the tag "${tag}".`}
+  >
+    <ul>
+      {
+        tagPosts.map(({ data }) => (
+          <Card href={`/posts/${slugify(data)}`} frontmatter={data} />
+        ))
+      }
+    </ul>
+  </Main>
+  <Footer />
+</Layout>
